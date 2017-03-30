@@ -5,6 +5,7 @@
 // INCLUDE REQUIRED HEADER FILES
 
 
+#include <Bounce2.h>
 #include <RTClib.h> //REAL TIME CLOCK FILE
 #include <Adafruit_NeoPixel.h> // LED STRIP FILE
 #include <Wire.h> // NOT SURE WHAT this is for
@@ -17,14 +18,23 @@
 #define GSMRXPIN    10 // DATA PIN FOR RECEIVING MESSAGES FROM GSM SIM
 #define TEMPPIN     11 // DATA PIN FOR TEMPERATURE SENSOR
 #define LIGHTPIN    12 // DATA PIN FOR LIGHT SENSOR
-#define HOMEBUTTONPIN     13 // PIN FOR HOME GOAL BUTTON
-#define AWAYBUTTONPIN     14 // PIN FOR AWAY GOAL BUTTON
-#define MODEBUTTONPIN     15 // PIN FOR MODE BUTTON
-#define SETBUTTONPIN      16 // PIN FOR SET BUTTON
+#define HOMEBUTTONPIN     7 // PIN FOR HOME GOAL BUTTON
+#define AWAYBUTTONPIN     8 // PIN FOR AWAY GOAL BUTTON
+#define MODEBUTTONPIN     3// PIN FOR MODE BUTTON
+#define SETBUTTONPIN     2 // PIN FOR SET BUTTON
+
+// set up debouncers
+
+Bounce debounceHome = Bounce();
+Bounce debounceAway = Bounce();
+Bounce debounceMode = Bounce();
+Bounce debounceSet = Bounce();
+
+
 
 // Define constants
 
-#define N_LEDS 240
+#define N_LEDS 140
 
 // Define colors to make setting the LEDs easier
 #define RED    0xFF0000
@@ -39,7 +49,7 @@
 
 // define global variables
 
-int Brightness = 64;
+int Brightness = 100;
 long TimerStartTime = 0;
 long TimerDuration = 0;
 long TimerDisplayTime = 0;
@@ -97,87 +107,80 @@ int Font[12][7] = {
 // int LedSegmentMapColon[] = { 2,2 };
 
 
+
+
 int LedSegmentMap[6][7][8] = {
 	{//first clock digit
 		{ 0,1,2,3,4,4,4,4 }, // segment 0
-		{ 5,6,7,8,9,10,10,10 }, // segment 1
-		{ 11,12,13,14,15,15,15,15 }, // segment 2
-		{ 16,17,18,19,20,21,21,21 },// segment 3
-		{ 22,23,24,25,26,27,27,27 }, // segment 4
-		{ 28,29,30,31,32,32,32,32 }, // segment 5
-		{ 33,34,35,36,37,38,38,38 } // segment 6
+		{ 5,6,7,8,9,9,9,9 }, // segment 1
+		{ 10,11,12,13,14,14,14,14 }, // segment 2
+		{ 15,16,17,18,18,18,18,18 },// segment 3
+		{ 19,20,21,22,22,22,22,22 }, // segment 4
+		{ 23,24,25,26,27,27,27,27 }, // segment 5
+		{ 28,29,30,31,32,32,32,32 } // segment 6
 	},
 
+
+
 	{//second clock digit
-		{ 41,42,43,44,45,45,45,45 }, // segment 0
-		{ 46,47,48,49,50,51,51,51 }, // segment 1
-		{ 52,53,54,55,56,56,56,56 }, // segment 2
-		{ 57,58,59,60,61,62,62,62 }, // segment 3
-		{ 63,64,65,66,67,68,68,68 }, // segment 4
-		{ 69,70,71,72,73,73,73,73 }, // segment 5
-		{ 74,75,76,77,78,79,79,79 } // segment 6
+		{ 33,34,35,36,37,37,37,37 },
+		{ 38,39,40,41,42,42,42,42 },
+		{ 43,44,45,46,47,47,47,47 },
+		{ 48,49,50,51,51,51,51,51 },
+		{ 52,53,54,55,55,55,55,55 },
+		{ 56,57,58,59,60,60,60,60 },
+		{ 61,62,63,64,65,65,65,65 }
+
 	},
 	{//third clock digit
-		{ 83,84,85,86,87,87,87,87 }, // segment 0
-		{ 88,89,90,91,92,93,93,93 }, // segment 1
-		{ 94,95,96,97,98,98,98,98 }, // segment 2
-		{ 99,100,101,102,103,104,104,104 }, // segment 3
-		{ 105,106,107,108,109,110,110,110 }, // segment 4
-		{ 111,112,113,114,115,115,115,115 }, // segment 5
-		{ 116,117,118,119,120,121,121,121 } // segment 6
+		{ 74,75,76,77,78,78,78,78 },
+		{ 79,80,81,82,83,83,83,83 },
+		{ 84,85,86,87,88,88,88,88 },
+		{ 89,90,91,92,92,92,92,92 },
+		{ 93,94,95,96,96,96,96,96 },
+		{ 97,98,99,100,101,101,101,101 },
+		{ 102,103,104,105,106,106,106,106 }
+
 	},
 
 	{//forth clock digit
-		{ 124,125,126,127,128,128,128,128 }, // segment 0
-		{ 129,130,131,132,133,134,134,134 }, // segment 1
-		{ 135,136,137,138,139,139,139,139 }, // segment 2
-		{ 140,141,142,143,144,145,145,145 }, // segment 3
-		{ 146,147,148,149,150,151,151,151 }, // segment 4
-		{ 152,153,154,155,156,156,156,156 }, // segment 5
-		{ 157,158,159,160,161,162,172,172 }  // segment 6
+		{ 107,108,109,110,111,111,111,111 },
+		{ 112,113,114,115,116,116,116,116 },
+		{ 117,118,119,120,121,121,121,121 },
+		{ 122,123,124,125,125,125,125,125 },
+		{ 126,127,128,129,129,129,129,129 },
+		{ 130,131,132,133,134,134,134,134 },
+		{ 135,136,137,138,139,139,139,139 }
+
 
 	},
 	{//fith digit - Home Score
-		{ 83,84,85,86,87,87,87,87 }, // segment 0
-		{ 88,89,90,91,92,93,93,93 }, // segment 1
-		{ 94,95,96,97,98,98,98,98 }, // segment 2
-		{ 99,100,101,102,103,104,104,104 }, // segment 3
-		{ 105,106,107,108,109,110,110,110 }, // segment 4
-		{ 111,112,113,114,115,115,115,115 }, // segment 5
-		{ 116,117,118,119,120,121,121,121 } // segment 6
+		{ 140,141,142,143,144,145,146,146 },
+		{ 147,148,149,150,151,152,153,153 },
+		{ 154,155,156,157,158,159,160,160 },
+		{ 161,162,163,164,165,165,165,165 },
+		{ 166,167,168,169,170,170,170,170 },
+		{ 171,172,173,174,175,176,177,177 },
+		{ 178,179,180,181,182,183,184,184 }
+
+
 	},
 	{//sixth digit - Away Score
-		{ 83,84,85,86,87,87,87,87 }, // segment 0
-		{ 88,89,90,91,92,93,93,93 }, // segment 1
-		{ 94,95,96,97,98,98,98,98 }, // segment 2
-		{ 99,100,101,102,103,104,104,104 }, // segment 3
-		{ 105,106,107,108,109,110,110,110 }, // segment 4
-		{ 111,112,113,114,115,115,115,115 }, // segment 5
-		{ 116,117,118,119,120,121,121,121 } // segment 6
+		{ 185,186,187,188,189,190,191,191 },
+		{ 192,193,194,195,196,197,198,198 },
+		{ 199,200,201,202,203,204,205,205 },
+		{ 206,207,208,209,210,210,210,210 },
+		{ 211,212,213,214,215,215,215,215 },
+		{ 216,217,218,219,220,221,222,222 },
+		{ 223,224,225,226,227,228,229,229 }
+
 	},
 };
 
-int LedColonMap[] = { 81,82,83,84 };
+int LedColonMap[] = { 67,68,71,72 };
 
 
-// Button timing variables
-int debounce = 20;          // ms debounce period to prevent flickering when pressing or releasing the button
-int DCgap = 250;            // max ms between clicks for a double click event
-int holdTime = 1000;        // ms hold period: how long to wait for press+hold event
-int longHoldTime = 3000;    // ms long hold period: how long to wait for press+hold event
 
-							// Button variables
-boolean buttonVal = HIGH;   // value read from button
-boolean buttonLast = HIGH;  // buffered value of the button's previous state
-boolean DCwaiting = false;  // whether we're waiting for a double click (down)
-boolean DConUp = false;     // whether to register a double click on next release, or whether to wait and click
-boolean singleOK = true;    // whether it's OK to do a single click
-long downTime = -1;         // time the button was pressed down
-long upTime = -1;           // time the button was released
-boolean ignoreUp = false;   // whether to ignore the button release because the click+hold was triggered
-boolean waitForUp = false;        // when held, whether to wait for the up event
-boolean holdEventPast = false;    // whether or not the hold event happened already
-boolean longHoldEventPast = false;// whether or not the long hold event happened already
 DateTime now; // To hold the current time from the RTC
 
 // SETUP REFRESH SPEED - HOW OFTEN SHOULD SMS ETC BE CHECKED
@@ -194,18 +197,27 @@ TimerStatuses Timerstatus = Unset;
 // MAIN SETUP FUNCTION
 void setup() {
 
+	// set up buttons
+
+	// Set-up home button pin
+	pinMode(HOMEBUTTONPIN, INPUT_PULLUP);
+	debounceHome.attach(HOMEBUTTONPIN);
+	debounceHome.interval(25);
+
+	// Set-up away button pin
+	pinMode(AWAYBUTTONPIN, INPUT_PULLUP);
+	debounceAway.attach(AWAYBUTTONPIN);
+	debounceAway.interval(25);
+
 	// Set-up mode button pin
-	pinMode(MODEBUTTONPIN, INPUT);
-	digitalWrite(MODEBUTTONPIN, HIGH);
-	// Set-up mode button pin
-	pinMode(SETBUTTONPIN, INPUT);
-	digitalWrite(SETBUTTONPIN, HIGH);
-	// Set-up mode button pin
-	pinMode(HOMEBUTTONPIN, INPUT);
-	digitalWrite(HOMEBUTTONPIN, HIGH);
-	// Set-up mode button pin
-	pinMode(AWAYBUTTONPIN, INPUT);
-	digitalWrite(AWAYBUTTONPIN, HIGH);
+	pinMode(MODEBUTTONPIN, INPUT_PULLUP);
+	debounceMode.attach(MODEBUTTONPIN);
+	debounceMode.interval(25);
+
+	// Set-up set button pin
+	pinMode(SETBUTTONPIN, INPUT_PULLUP);
+	debounceSet.attach(SETBUTTONPIN);
+	debounceSet.interval(25);
 
 	
 
@@ -227,7 +239,7 @@ void setup() {
 
 	strip.begin();
 	SetBrightness();
-
+	ShowTest();
 	// Move to 'Normal' Mode
 	Scoreboardmode = Clock;
 
@@ -236,35 +248,51 @@ void setup() {
 
 
 void loop() {
-
+	
 	//EVERY CYCLE CHECK FOR INPUT UPDATES Buttons, SMS, RTC
 
 	//CHECK FOR SMS
 	CheckSMS();
 
 	//CHECK the status of each button
-	int b1 = ButtonPress(HOMEBUTTONPIN);
-	int b2 = ButtonPress(AWAYBUTTONPIN);
-	int b3 = ButtonPress(MODEBUTTONPIN);
-	int b4 = ButtonPress(SETBUTTONPIN);
+	//int b1 = ButtonPress(HOMEBUTTONPIN);
+	//int b2 = ButtonPress(AWAYBUTTONPIN);
+	//int b3 = ButtonPress(MODEBUTTONPIN);
+	//int b4 = ButtonPress(SETBUTTONPIN);
+
+	debounceHome.update();
+	debounceAway.update();
+	debounceMode.update();
+	debounceSet.update();
+
+
+	bool b1 = debounceHome.fell();
+	bool b2 = debounceAway.fell();
+	bool b3 = debounceMode.fell();
+	bool b4 = debounceSet.fell();
+
+	
 
 	//Get latest Time
 	now = RTC.now();
-	
+	//Serial.print(b1);
 	// Respond to buttons
 	// Home Button (b1) - Same behaviour in every state
 	if (b1) {
 		HomeScore = HomeScore + 1; //HomeScore button pressed
+		Serial.print("Home Goal");
 	}
 
 	//Away Button (b2) - same behaviour in every state
 	if (b2) {
 		AwayScore = AwayScore + 1; //AwayScore button pressed
+		Serial.print("Away Goal");
 	}
 
 
 	//Mode Button (b3) - behavior depends on state
 	if (b3) {
+		Serial.print("Mode Button");
 		// run through potential states
 		switch (Scoreboardmode)
 		{
@@ -325,6 +353,7 @@ void loop() {
 
 	// Set Button Pressed
 	if (b4) {
+		Serial.print("Set Button");
 		switch (Scoreboardmode)
 		{
 		case Reset: // scoreboard just switched on or reset
@@ -408,12 +437,14 @@ void loop() {
 	SetScoreDigits();
 
 	Display(); // Show Stuff on the Digits
+	Serial.print(Scoreboardmode);
 }
 // end of Loop
 
 void Display() {
 
 	strip.show();
+	delay(100);
 }
 void SetScoreDigits() {
 	// Set  the values of the score digits
@@ -449,12 +480,15 @@ void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcol
 // FUNCTION TO SET AND SHOW ANY SINGLE DIGIT
 void setDigit(int digit, int value, uint32_t color) {
 	int ledsPerSeg = 8;
-
+	
 	for (int seg = 0; seg < 7; seg++) {
 		for (int led = 0; led < ledsPerSeg; led++) {
 			strip.setPixelColor(LedSegmentMap[digit][seg][led], Font[value][seg] ? color : OFF);
+			Serial.print(Font[value][seg]);
+			Serial.print(color);
 		}
 	}
+	strip.show();
 }
 
 // FUNCTION TO SET AND SHOW THE COLON
@@ -572,74 +606,6 @@ void setupRTC() {
 	SwitchOnTime = TimeNow;
 }
 
-
-// function to return the state of a button
-int ButtonPress(int ButtonPIN)
-{
-	int event = 0;
-	buttonVal = digitalRead(ButtonPIN);
-	// Button pressed down
-	if (buttonVal == LOW && buttonLast == HIGH && (millis() - upTime) > debounce)
-	{
-		downTime = millis();
-		ignoreUp = false;
-		waitForUp = false;
-		singleOK = true;
-		holdEventPast = false;
-		longHoldEventPast = false;
-		if ((millis() - upTime) < DCgap && DConUp == false && DCwaiting == true)  DConUp = true;
-		else  DConUp = false;
-		DCwaiting = false;
-	}
-	// Button released
-	else if (buttonVal == HIGH && buttonLast == LOW && (millis() - downTime) > debounce)
-	{
-		if (!ignoreUp)
-		{
-			upTime = millis();
-			if (DConUp == false) DCwaiting = true;
-			else
-			{
-				event = 2;
-				DConUp = false;
-				DCwaiting = false;
-				singleOK = false;
-			}
-		}
-	}
-	// Test for normal click event: DCgap expired
-	if (buttonVal == HIGH && (millis() - upTime) >= DCgap && DCwaiting == true && DConUp == false && singleOK == true && event != 2)
-	{
-		event = 1;
-		DCwaiting = false;
-	}
-	// Test for hold
-	if (buttonVal == LOW && (millis() - downTime) >= holdTime) {
-		// Trigger "normal" hold
-		if (!holdEventPast)
-		{
-			event = 3;
-			waitForUp = true;
-			ignoreUp = true;
-			DConUp = false;
-			DCwaiting = false;
-			//downTime = millis();
-			holdEventPast = true;
-		}
-		// Trigger "long" hold
-		if ((millis() - downTime) >= longHoldTime)
-		{
-			if (!longHoldEventPast)
-			{
-				event = 4;
-				longHoldEventPast = true;
-			}
-		}
-	}
-	buttonLast = buttonVal;
-	return event;
-
-}
 // Set the Strip Default Brightness
 void SetBrightness() {
 	strip.setBrightness(Brightness);
@@ -690,7 +656,7 @@ void ShowTest() {
 	for (int digit = 0; digit<4; digit++) {
 		for (int i = 0; i<11; i++) {
 			setDigit(digit, i, RED);
-			delay(500);
+			delay(50);
 		}
 	}
 }
