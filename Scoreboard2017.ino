@@ -68,7 +68,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800
 
 int COLONLED = 81;
 
-int Font[11][7] = {
+int Font[12][7] = {
 	{ 0,1,1,1,1,1,1 }, //value 0
 	{ 0,1,0,0,0,0,1 }, //value 1
 	{ 1,1,1,0,1,1,0 }, //value 2
@@ -78,8 +78,9 @@ int Font[11][7] = {
 	{ 1,0,0,1,1,1,1 }, //value 6
 	{ 0,1,1,0,0,0,1 }, //value 7
 	{ 1,1,1,1,1,1,1 }, //value 8
-	{ 1,1,1,1,0,0,1 },  //value 9
-	{ 0,0,0,0,0,0,0 }  //value 10 - all off
+	{ 1,1,1,1,0,0,1 }, //value 9
+	{ 0,0,0,0,0,0,0 }, //value 10 - all off
+    { 1,1,1,1,0,0,0 }  // value 11 - degree sign
 };
 
 int LedSegmentMap[4][7][8] = {
@@ -207,6 +208,8 @@ void loop() {
 
 	//CHECK FOR SMS
 
+	CheckSMS();
+
 	//CHECK the status of each button
 
 	int b1 = ButtonPress(HOMEBUTTONPIN);
@@ -302,11 +305,11 @@ void loop() {
 		{
 			Scoreboardmode = SetClockHour; // move to Timer Mode
 		}
-		break; // end of normal case
+		break; // end of Clock case
 
 		case Timer:
 		{
-			switch(Timerstatus)
+			switch (Timerstatus)
 			{
 			case Unset:
 			{
@@ -333,37 +336,37 @@ void loop() {
 				// do nothing
 			}
 
+			}
 		}
-		break;
-
+		break; // end of timer case
+		
 		case Temp:
 		{
-			ClockFlash = false;
-			Scoreboardmode = Clock; // move to Clock Mode
+			// currently do nothing - will set temp later
 		}
 		break;
 
 		case SetClockHour:
 		{
-			ClockAddHour(); // Add 1 Hour to Current Time
+			Scoreboardmode = SetClockMin; // Move to SetClockMin
 		}
 		break;
 
 		case SetClockMin:
 		{
-			ClockAddMin(); // Add 1 Min to Current Time
+			Scoreboardmode = SetTimerMin; // move to SetTimerMin
 		}
 		break;
 
 		case SetTimerMin:
 		{
-			TimerAddMin(); // Add 1 Hour to Current Time
+			Scoreboardmode = SetTimerSec; // move to SetTimerSec
 		}
 		break;
 
 		case SetTimerSec:
 		{
-			TimerAddSec(); // Add 1 Hour to Current Time
+			Scoreboardmode = Clock; // move to Clock State
 		}
 		break;
 
@@ -411,7 +414,7 @@ void setColon(int vlaue, uint32_t color) {
 void SetTimer(int secs) {
 
 	TimerDuration = secs;
-	TimerStatus = "Set";
+	Timerstatus = Set;
 
 }
 
@@ -422,7 +425,7 @@ void StartTimer() {
 	long TimeNow = now.unixtime();
 	//long TimeNow = millis()/1000; dont use if RTC is connected
 	TimerStartTime = TimeNow;
-	TimerStatus = "Running";
+	Timerstatus = Running;
 
 }
 
@@ -433,11 +436,10 @@ void resetTimer() {
 
 // FUNCTION TO SET VALUE OF TIMER
 long TimerValue() {
-	DateTime now = RTC.now();
 	long TimeNow = now.unixtime();
 	long TimerShow = 0;
 
-	if (TimerStatus == "Running") {
+	if (Timerstatus == Running) {
 		long TimerDisplayTime = TimerStartTime - TimeNow + TimerDuration;
 		Serial.print(TimerDisplayTime);
 		TimerShow = TimerDisplayTime;
@@ -459,17 +461,14 @@ void ShowTimer() {
 	int TimerDisplayTenSecs = ((TimerDisplayTime % 60) / 10) % 10;
 	int TimerDisplaySecs = TimerDisplayTime % 10;
 
-	if (TimerDisplayTime <= 0) {
-		SetDigits(10, 0, 0, 0);
-	}
-	else
-	{
+	if (TimerDisplayTenMins == 0) TimerDisplayTenMins = 10; // dont show a leading zero - set to 10 = OFF
+
 		SetDigits(TimerDisplayTenMins, TimerDisplayMins, TimerDisplayTenSecs, TimerDisplaySecs);
-	}
+	
 }
 
 // FUNCTION TO SHOW CURRENT TIME ON CLOCK DIGITS
-void ShowClock() {
+void ShowTime() {
 	// Serial.println("Show Clock");
 	DateTime now = RTC.now();
 
@@ -617,12 +616,12 @@ void CycleBrightness() {
 
 }
 // Set the clock digits
-void SetClock() {
+void ShowClock() {
 
-	switch (Clockdisplaymode)
+	switch (Scoreboardmode)
 	{
 	case Clock:
-		ShowClock();
+		ShowTime();
 		break;
 	case Timer:
 		ShowTimer();
@@ -632,7 +631,7 @@ void SetClock() {
 		break;
 	}
 }
-void SetScore() {
+void ShowScore() {
 	// Set the scoreboard digits
 }
 void ShowTemp() {
