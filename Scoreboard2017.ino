@@ -1,17 +1,17 @@
 // MAIN CODE FOR WALLINGFORD HC SCOREBOARD
-// MARCH 2017 VERSION 1.2
+// MARCH 2017 VERSION 3.0
 // DAVID SHANNON
 
 // INCLUDE REQUIRED HEADER FILES
 
 #include <RTClib.h> //REAL TIME CLOCK FILE
 #include <Adafruit_NeoPixel.h> // LED STRIP FILE
-#include <Wire.h> // NOT SURE WHAT this is fore
+#include <Wire.h> // NOT SURE WHAT this is for
 #include <arduino.h>
 
 // PIN DEFINITIONS
 
-#define LEDPIN      8 // data pin for LED strip
+#define LEDPIN      6 // data pin for LED strip
 #define GSMTXPIN    9 // DATA PIN FOR TRANSMITTING MESSAGES TO GSM SIM
 #define GSMRXPIN    10 // DATA PIN FOR RECEIVING MESSAGES FROM GSM SIM
 #define TEMPPIN     11 // DATA PIN FOR TEMPERATURE SENSOR
@@ -39,7 +39,6 @@
 // define global variables
 
 int Brightness = 64;
-String TimerStatus = "Unset";
 long TimerStartTime = 0;
 long TimerDuration = 0;
 long TimeNow = 0;
@@ -50,9 +49,8 @@ int AwayScore = 0;
 
 boolean ClockFlash = false;
 
-enum  ScoreboardModes { Reset, Normal, Set };
-enum  ClockDisplayModes { Clock, Timer, Temp };
-
+enum  ScoreboardModes { Reset, Clock, Timer, Temp, SetClockHour, SetClockMin, SetTimerMin, SetTimerSec };
+enum TimerStatuses { Unset, Set, Running, Paused, Finished};
 
 uint32_t DisplayColor = RED;
 RTC_DS1307 RTC;
@@ -144,12 +142,11 @@ boolean ignoreUp = false;   // whether to ignore the button release because the 
 boolean waitForUp = false;        // when held, whether to wait for the up event
 boolean holdEventPast = false;    // whether or not the hold event happened already
 boolean longHoldEventPast = false;// whether or not the long hold event happened already
-
-
+DateTime now; // To hold the current time from the RTC
 								  // Set-up scoreboard mode
 
 ScoreboardModes Scoreboardmode = Reset;
-ClockDisplayModes Clockdisplaymode = Clock;
+TimerStatuses Timerstatus = Unset;
 
 
 // MAIN SETUP FUNCTION
@@ -177,7 +174,22 @@ void setup() {
 	Serial.begin(9600);
 
 
+	// SETUP REAL TIME CLOCK
+	setupRTC();
+	now = RTC.now();
 
+	// SETUP GSM SIM
+
+	// SET DEFAULT TIME on the Timer
+	SetTimer(2100);
+
+	// SETUP DISPLAY
+
+	strip.begin();
+	SetBrightness();
+
+	// Move to 'Normal' Mode
+	Scoreboardmode == Clock;
 
 
 	// Serial.println("---------------");
@@ -191,7 +203,7 @@ void setup() {
 
 void loop() {
 
-	//EVERY CYCLE CHECK FOR UPDATES TO SCORE, TIME OR MODE
+	//EVERY CYCLE CHECK FOR INPUT UPDATES Buttons, SMS, RTC
 
 	//CHECK FOR SMS
 
@@ -202,63 +214,161 @@ void loop() {
 	int b3 = ButtonPress(MODEBUTTONPIN);
 	int b4 = ButtonPress(SETBUTTONPIN);
 
-	// run through potential states
-	switch (Scoreboardmode)
-	{
-	case Reset: // scoreboard just switched on or reset
-	{
-		// SETUP REAL TIME CLOCK
-		setupRTC();
+	//Get latest Time
+	now = RTC.now();
 
-		// SETUP GSM SIM
 
-		// SET DEFAULT TIME on the Timer
-		SetTimer(2100);
+	// Respond to buttons
 
-		// SETUP DISPLAY
 
-		strip.begin();
-		SetBrightness();
+	// Home Button (b1) - Same behaviour in every state
+	if (b1) HomeScore = HomeScore + 1; //HomeScore button pressed
 
-		// Move to 'Normal' Mode
-		Scoreboardmode == Normal;
-	}
-	break; // end of Reset Case
+	//Away Button (b2) - same behaviour in every state
+	if (b2) AwayScore = AwayScore + 1; //AwayScore button pressed
 
-	case Normal: //
-	{
-		ClockFlash = false;
-		if (b1) HomeScore = (HomeScore + 1) % 10; //HomeScore button pressed
-		if (b2) AwayScore = (AwayScore + 1) % 10; //AwayScore button pressed
-		if (b3) {                                 // Mode Button Pressed
-			switch (Clockdisplaymode)
-			{
-			case Clock:
-				Clockdisplaymode = Timer; // if it was clock - mode button press moves it to timer
-				break;
-			case Timer:
-				Clockdisplaymode = Temp; // if it was timer - mode button press moves it to temp
-				break;
-			case Temp:
-				Clockdisplaymode = Clock; // if it was temp - mode button press moves it to clock
-				break;
-			}
+
+	//Mode Button (b3) - behavior depends on state
+	if (b3) {
+		// run through potential states
+		switch (Scoreboardmode)
+		{
+		case Reset: // scoreboard just switched on or reset
+		{
+			// nothing to do
 		}
-		if (b4) Scoreboardmode = Set;           // Set Button Pressed
+		break; // end of Reset Case
 
-												//now set the display digits
-		SetClock();
-		SetScore();
-	}
-	break; // end of normal case
+		case Clock: //
+		{
+			ClockFlash = false;
+			Scoreboardmode = Timer; // move to Timer Mode
+		}
+		break; // end of normal case
 
-	case Set:
-	{
-		ClockFlash = true;
-	}
-	}
-	// once we have set what we are showing
+		case Timer:
+		{
+			ClockFlash = false;
+			Scoreboardmode = Temp; // move to Temp Mode
+		}
+		break;
+		
+		case Temp:
+		{
+			ClockFlash = false;
+			Scoreboardmode = Clock; // move to Clock Mode
+		}
+		break;
 
+		case SetClockHour:
+		{
+			ClockAddHour(); // Add 1 Hour to Current Time
+		}
+		break;
+
+		case SetClockMin:
+		{
+			ClockAddMin(); // Add 1 Min to Current Time
+		}
+		break;
+		
+		case SetTimerMin:
+		{
+			TimerAddMin(); // Add 1 Hour to Current Time
+		}
+		break;
+		
+		case SetTimerSec:
+		{
+			TimerAddSec(); // Add 1 Hour to Current Time
+		}
+		break;
+
+
+		}
+	}
+
+	// Set Button Pressed
+	if (b4) {
+		switch (Scoreboardmode)
+		{
+		case Reset: // scoreboard just switched on or reset
+		{
+			// nothing to do
+		}
+		break; // end of Reset Case
+
+		case Clock: //
+		{
+			Scoreboardmode = SetClockHour; // move to Timer Mode
+		}
+		break; // end of normal case
+
+		case Timer:
+		{
+			switch(Timerstatus)
+			{
+			case Unset:
+			{
+				// do nothing
+			}
+			break;
+			case Set:
+			{
+				Timerstatus = Running;
+			}
+			break;
+			case Running:
+			{
+				Timerstatus = Paused;
+			}
+			break;
+			case Paused:
+			{
+				Timerstatus = Running;
+			}
+			break;
+			case Finished:
+			{
+				// do nothing
+			}
+
+		}
+		break;
+
+		case Temp:
+		{
+			ClockFlash = false;
+			Scoreboardmode = Clock; // move to Clock Mode
+		}
+		break;
+
+		case SetClockHour:
+		{
+			ClockAddHour(); // Add 1 Hour to Current Time
+		}
+		break;
+
+		case SetClockMin:
+		{
+			ClockAddMin(); // Add 1 Min to Current Time
+		}
+		break;
+
+		case SetTimerMin:
+		{
+			TimerAddMin(); // Add 1 Hour to Current Time
+		}
+		break;
+
+		case SetTimerSec:
+		{
+			TimerAddSec(); // Add 1 Hour to Current Time
+		}
+		break;
+
+		}
+	}
 	Display(); // Show Stuff on the Digits
 }
 // end of Loop
