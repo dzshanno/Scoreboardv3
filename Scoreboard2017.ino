@@ -4,6 +4,7 @@
 
 // INCLUDE REQUIRED HEADER FILES
 
+
 #include <RTClib.h> //REAL TIME CLOCK FILE
 #include <Adafruit_NeoPixel.h> // LED STRIP FILE
 #include <Wire.h> // NOT SURE WHAT this is for
@@ -41,18 +42,24 @@
 int Brightness = 64;
 long TimerStartTime = 0;
 long TimerDuration = 0;
+long TimerDisplayTime = 0;
 long TimeNow = 0;
 long Timer1 = 0;
 long SwitchOnTime;
 int HomeScore = 0;
 int AwayScore = 0;
+long temp = 0;
+
 
 boolean ClockFlash = false;
 
 enum  ScoreboardModes { Reset, Clock, Timer, Temp, SetClockHour, SetClockMin, SetTimerMin, SetTimerSec };
 enum TimerStatuses { Unset, Set, Running, Paused, Finished};
 
-uint32_t DisplayColor = RED;
+uint32_t ClockDisplayColor = BLUE;
+uint32_t TimerDisplayColor = GREEN;
+uint32_t ScoreDisplayColor = RED;
+
 RTC_DS1307 RTC;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
 
@@ -83,8 +90,15 @@ int Font[12][7] = {
     { 1,1,1,1,0,0,0 }  // value 11 - degree sign
 };
 
-int LedSegmentMap[4][7][8] = {
-	{//first digit
+// digit set up
+
+// int LedSegmentMapSmall[] = { 5,5,5,4,4,5,5 };
+// int LedSegmentMapLarge[] = { 7,7,7,5,5,7,7 };
+// int LedSegmentMapColon[] = { 2,2 };
+
+
+int LedSegmentMap[6][7][8] = {
+	{//first clock digit
 		{ 0,1,2,3,4,4,4,4 }, // segment 0
 		{ 5,6,7,8,9,10,10,10 }, // segment 1
 		{ 11,12,13,14,15,15,15,15 }, // segment 2
@@ -94,7 +108,7 @@ int LedSegmentMap[4][7][8] = {
 		{ 33,34,35,36,37,38,38,38 } // segment 6
 	},
 
-	{//second digit
+	{//second clock digit
 		{ 41,42,43,44,45,45,45,45 }, // segment 0
 		{ 46,47,48,49,50,51,51,51 }, // segment 1
 		{ 52,53,54,55,56,56,56,56 }, // segment 2
@@ -103,7 +117,7 @@ int LedSegmentMap[4][7][8] = {
 		{ 69,70,71,72,73,73,73,73 }, // segment 5
 		{ 74,75,76,77,78,79,79,79 } // segment 6
 	},
-	{//third digit
+	{//third clock digit
 		{ 83,84,85,86,87,87,87,87 }, // segment 0
 		{ 88,89,90,91,92,93,93,93 }, // segment 1
 		{ 94,95,96,97,98,98,98,98 }, // segment 2
@@ -113,7 +127,7 @@ int LedSegmentMap[4][7][8] = {
 		{ 116,117,118,119,120,121,121,121 } // segment 6
 	},
 
-	{//forth digit
+	{//forth clock digit
 		{ 124,125,126,127,128,128,128,128 }, // segment 0
 		{ 129,130,131,132,133,134,134,134 }, // segment 1
 		{ 135,136,137,138,139,139,139,139 }, // segment 2
@@ -122,8 +136,29 @@ int LedSegmentMap[4][7][8] = {
 		{ 152,153,154,155,156,156,156,156 }, // segment 5
 		{ 157,158,159,160,161,162,172,172 }  // segment 6
 
-	}
+	},
+	{//fith digit - Home Score
+		{ 83,84,85,86,87,87,87,87 }, // segment 0
+		{ 88,89,90,91,92,93,93,93 }, // segment 1
+		{ 94,95,96,97,98,98,98,98 }, // segment 2
+		{ 99,100,101,102,103,104,104,104 }, // segment 3
+		{ 105,106,107,108,109,110,110,110 }, // segment 4
+		{ 111,112,113,114,115,115,115,115 }, // segment 5
+		{ 116,117,118,119,120,121,121,121 } // segment 6
+	},
+	{//sixth digit - Away Score
+		{ 83,84,85,86,87,87,87,87 }, // segment 0
+		{ 88,89,90,91,92,93,93,93 }, // segment 1
+		{ 94,95,96,97,98,98,98,98 }, // segment 2
+		{ 99,100,101,102,103,104,104,104 }, // segment 3
+		{ 105,106,107,108,109,110,110,110 }, // segment 4
+		{ 111,112,113,114,115,115,115,115 }, // segment 5
+		{ 116,117,118,119,120,121,121,121 } // segment 6
+	},
 };
+
+int LedColonMap[] = { 81,82,83,84 };
+
 
 // Button timing variables
 int debounce = 20;          // ms debounce period to prevent flickering when pressing or releasing the button
@@ -144,7 +179,13 @@ boolean waitForUp = false;        // when held, whether to wait for the up event
 boolean holdEventPast = false;    // whether or not the hold event happened already
 boolean longHoldEventPast = false;// whether or not the long hold event happened already
 DateTime now; // To hold the current time from the RTC
-								  // Set-up scoreboard mode
+
+// SETUP REFRESH SPEED - HOW OFTEN SHOULD SMS ETC BE CHECKED
+
+int SMSCheckRate = 10; // CHECK FOR SMS EVERY 10 SECS
+int TEMPCheckRate = 600; // CHECK TEMPERATURE EVERY 10 MINS
+			  
+// Set-up scoreboard mode
 
 ScoreboardModes Scoreboardmode = Reset;
 TimerStatuses Timerstatus = Unset;
@@ -166,12 +207,9 @@ void setup() {
 	pinMode(AWAYBUTTONPIN, INPUT);
 	digitalWrite(AWAYBUTTONPIN, HIGH);
 
-	// SETUP REFRESH SPEED - HOW OFTEN SHOULD SMS ETC BE CHECKED
+	
 
-	int SMSCheckRate = 10; // CHECK FOR SMS EVERY 10 SECS
-	int TEMPCheckRate = 600; // CHECK TEMPERATURE EVERY 10 MINS
-
-							 // SETUP SERIAL CONNECTION
+	// SETUP SERIAL CONNECTION
 	Serial.begin(9600);
 
 
@@ -183,6 +221,7 @@ void setup() {
 
 	// SET DEFAULT TIME on the Timer
 	SetTimer(2100);
+	Timerstatus = Set;
 
 	// SETUP DISPLAY
 
@@ -190,13 +229,7 @@ void setup() {
 	SetBrightness();
 
 	// Move to 'Normal' Mode
-	Scoreboardmode == Clock;
-
-
-	// Serial.println("---------------");
-	//  Serial.println(DisplayMode);
-
-
+	Scoreboardmode = Clock;
 
 }
 
@@ -207,11 +240,9 @@ void loop() {
 	//EVERY CYCLE CHECK FOR INPUT UPDATES Buttons, SMS, RTC
 
 	//CHECK FOR SMS
-
 	CheckSMS();
 
 	//CHECK the status of each button
-
 	int b1 = ButtonPress(HOMEBUTTONPIN);
 	int b2 = ButtonPress(AWAYBUTTONPIN);
 	int b3 = ButtonPress(MODEBUTTONPIN);
@@ -219,16 +250,17 @@ void loop() {
 
 	//Get latest Time
 	now = RTC.now();
-
-
+	
 	// Respond to buttons
-
-
 	// Home Button (b1) - Same behaviour in every state
-	if (b1) HomeScore = HomeScore + 1; //HomeScore button pressed
+	if (b1) {
+		HomeScore = HomeScore + 1; //HomeScore button pressed
+	}
 
 	//Away Button (b2) - same behaviour in every state
-	if (b2) AwayScore = AwayScore + 1; //AwayScore button pressed
+	if (b2) {
+		AwayScore = AwayScore + 1; //AwayScore button pressed
+	}
 
 
 	//Mode Button (b3) - behavior depends on state
@@ -372,6 +404,9 @@ void loop() {
 
 		}
 	}
+	SetClockDigits();
+	SetScoreDigits();
+
 	Display(); // Show Stuff on the Digits
 }
 // end of Loop
@@ -380,14 +415,36 @@ void Display() {
 
 	strip.show();
 }
+void SetScoreDigits() {
+	// Set  the values of the score digits
+
+	setDigit(4, HomeScore, ScoreDisplayColor);
+	setDigit(5, AwayScore, ScoreDisplayColor);
+
+}
+void SetClockDigits() {
+
+	switch (Scoreboardmode)
+	{
+	case Clock:
+		SetTimeDigits();
+		break;
+	case Timer:
+		SetTimerDigits();
+		break;
+	case Temp:
+		ShowTemp();
+		break;
+	}
+}
 
 // FUNCTION TO SET THE CLOCK DIGITS
-void SetDigits(int digit0, int digit1, int digit2, int digit4) {
-	setDigit(0, digit0, DisplayColor);
-	setDigit(1, digit1, DisplayColor);
-	setDigit(2, digit2, DisplayColor);
-	setDigit(3, digit4, DisplayColor);
-}
+void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcolor) {
+	setDigit(0, digit0, digitcolor);
+	setDigit(1, digit1, digitcolor);
+	setDigit(2, digit2, digitcolor);
+	setDigit(3, digit4, digitcolor);
+} 
 
 // FUNCTION TO SET AND SHOW ANY SINGLE DIGIT
 void setDigit(int digit, int value, uint32_t color) {
@@ -398,16 +455,16 @@ void setDigit(int digit, int value, uint32_t color) {
 			strip.setPixelColor(LedSegmentMap[digit][seg][led], Font[value][seg] ? color : OFF);
 		}
 	}
-	strip.show();
 }
 
 // FUNCTION TO SET AND SHOW THE COLON
 
-void setColon(int vlaue, uint32_t color) {
+void setColon(int vlaue, uint32_t Coloncolor) {
 
-
-	strip.setPixelColor(COLONLED, color);
-	strip.show();
+	for (int led = 0; led < 8; led++) {
+		strip.setPixelColor(LedColonMap[led], Coloncolor);
+	}
+	
 }
 
 // SET A TIMER IN MEMORY TO A GIVEN NUMBER OF SECONDS
@@ -415,46 +472,55 @@ void SetTimer(int secs) {
 
 	TimerDuration = secs;
 	Timerstatus = Set;
+	TimerDisplayTime = TimerDuration;
 
 }
 
 // FUNCTION TO START A PARTICULAR TIMER
 void StartTimer() {
 
-	DateTime now = RTC.now(); // dont use RtC IF ITS NOT CONNECTED
+	now = RTC.now(); 
 	long TimeNow = now.unixtime();
-	//long TimeNow = millis()/1000; dont use if RTC is connected
+
+	TimerDuration = TimerDisplayTime;
 	TimerStartTime = TimeNow;
 	Timerstatus = Running;
 
 }
 
+
+// FUNCTION TO PAUSE THE TIMER
+void pauseTimer() {
+
+	Timerstatus = Paused;
+
+}
+
 // FUNCTION TO RESET TIMER
 void resetTimer() {
-
+	
 }
 
 // FUNCTION TO SET VALUE OF TIMER
 long TimerValue() {
+	
 	long TimeNow = now.unixtime();
-	long TimerShow = 0;
 
 	if (Timerstatus == Running) {
-		long TimerDisplayTime = TimerStartTime - TimeNow + TimerDuration;
-		Serial.print(TimerDisplayTime);
-		TimerShow = TimerDisplayTime;
+		TimerDisplayTime = TimerStartTime - TimeNow + TimerDuration;
 	}
 	else {
 		// don't update the Timer Display Time
 	}
 
-	return TimerShow;
+	return TimerDisplayTime;
 }
 
 // FUNCTION TO SET THE TIMER DIGITS ON THE CLOCK DISPLAY
-void ShowTimer() {
+void SetTimerDigits() {
 
-	long TimerDisplayTime = TimerValue(); //get the value to display
+	TimerDisplayTime = TimerValue(); //get the value to display
+	
 	int TimerDisplayTenMins = TimerDisplayTime / 600;
 	if (TimerDisplayTenMins == 0) TimerDisplayTenMins = 10; // if zero set the Tens digit to OFF
 	int TimerDisplayMins = (TimerDisplayTime / 60) % 10;
@@ -463,14 +529,13 @@ void ShowTimer() {
 
 	if (TimerDisplayTenMins == 0) TimerDisplayTenMins = 10; // dont show a leading zero - set to 10 = OFF
 
-		SetDigits(TimerDisplayTenMins, TimerDisplayMins, TimerDisplayTenSecs, TimerDisplaySecs);
+		SetDigits(TimerDisplayTenMins, TimerDisplayMins, TimerDisplayTenSecs, TimerDisplaySecs, TimerDisplayColor);
 	
 }
 
 // FUNCTION TO SHOW CURRENT TIME ON CLOCK DIGITS
-void ShowTime() {
-	// Serial.println("Show Clock");
-	DateTime now = RTC.now();
+void SetTimeDigits() {
+	now = RTC.now();
 
 	int Digit1 = (now.hour()) / 10;
 	int Digit2 = now.hour() % 10;
@@ -480,19 +545,14 @@ void ShowTime() {
 	// Flash the COLON
 
 	if (millis() % 1000 < 100) {
-		setColon(1, RED);
+		setColon(1, TimerDisplayColor);
 	}
 	else
 	{
 		setColon(0, OFF);
 	}
 
-	// Serial.println(Digit1);
-	// Serial.println(now.hour());
-	// Serial.println("---------------");
-	// Serial.println(Digit2);
-
-	SetDigits(Digit1, Digit2, Digit3, Digit4);
+	SetDigits(Digit1, Digit2, Digit3, Digit4, ClockDisplayColor);
 }
 
 // FUNCTION TO INITIAILISE AND SET THE REAL TIME CLOCK
@@ -507,35 +567,12 @@ void setupRTC() {
 	if (RTC.isrunning()) {
 		Serial.println("RTC is running!");
 	}
-	loopRTC();
 	DateTime now = RTC.now();
 	long TimeNow = now.unixtime();
 	SwitchOnTime = TimeNow;
 }
 
-// FUNCTION TO EXTRACT YEAR/month/day/hour/minute components from RTC FEED
-void loopRTC() {
 
-	DateTime now = RTC.now();
-	String timeStr = String(now.year()) + ", ";
-	timeStr = timeStr + String(now.month()) + ", ";
-	timeStr = timeStr + String(now.day()) + ", ";
-	timeStr = timeStr + String(now.hour()) + ", ";
-	timeStr = timeStr + String(now.minute()) + ", ";
-	timeStr = timeStr + String(now.second());
-	Serial.println(timeStr);
-
-}
-
-// FUNCTION TO RUN THROUGH THE DIGITS TESTING THAT THEY FUNCTION CORRECTLY
-void ShowTest() {
-	for (int digit = 0; digit<4; digit++) {
-		for (int i = 0; i<11; i++) {
-			setDigit(digit, i, RED);
-			delay(500);
-		}
-	}
-}
 // function to return the state of a button
 int ButtonPress(int ButtonPIN)
 {
@@ -616,24 +653,44 @@ void CycleBrightness() {
 
 }
 // Set the clock digits
-void ShowClock() {
 
-	switch (Scoreboardmode)
-	{
-	case Clock:
-		ShowTime();
-		break;
-	case Timer:
-		ShowTimer();
-		break;
-	case Temp:
-		ShowTemp();
-		break;
-	}
-}
 void ShowScore() {
 	// Set the scoreboard digits
 }
 void ShowTemp() {
 	// show the current temperature
+}
+// check for SMS messages
+void CheckSMS() {
+	//check for SMS messages
+}
+// Add an hour to the time
+void ClockAddHour() {
+	RTC.adjust(DateTime(now.year(), now.month(), now.day(), now.hour() + 1, now.minute(), now.second()));
+}
+// Add an hour to the time
+void ClockAddMin() {
+	RTC.adjust(DateTime(now.year(), now.month(), now.day(), now.hour(), now.minute()+1, now.second()));
+}
+// Add an hour to the time
+void TimerAddMin() {
+
+	// this isnt going to work as Display value for the timer isnt held directly - need to update start time and duration
+	TimerDuration = TimerDuration + 60;
+}
+// Add an hour to the time
+void TimerAddSec() {
+	TimerDuration = TimerDuration + 1;
+}
+// //////////////////////////////////////////////////
+// ADMIN CODE
+//
+// FUNCTION TO RUN THROUGH THE DIGITS TESTING THAT THEY FUNCTION CORRECTLY
+void ShowTest() {
+	for (int digit = 0; digit<4; digit++) {
+		for (int i = 0; i<11; i++) {
+			setDigit(digit, i, RED);
+			delay(500);
+		}
+	}
 }
