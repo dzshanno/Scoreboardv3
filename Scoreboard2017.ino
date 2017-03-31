@@ -40,16 +40,13 @@ Bounce debounceSet = Bounce();
 #define RED    0xFF0000
 #define GREEN  0x00FF00
 #define BLUE   0x0000FF
-#define YELLOW 0xFFFF00
-#define PINK   0xFF1088
-#define ORANGE 0xE05800
 #define WHITE  0xFFFFFF
 #define OFF    0X000000
 
 
 // define global variables
 
-int Brightness = 100;
+byte Brightness = 100;
 long TimerStartTime = 0;
 long TimerDuration = 0;
 long TimerDisplayTime = 0;
@@ -107,75 +104,73 @@ int Font[12][7] = {
 
 
 
-int LedSegmentMap[6][7][8] = {
+byte LedSegmentMap[6][7][2] = {
 	{//first clock digit
-		{ 0,1,2,3,4,4,4,4 }, // segment 0
-		{ 5,6,7,8,9,9,9,9 }, // segment 1
-		{ 10,11,12,13,14,14,14,14 }, // segment 2
-		{ 15,16,17,18,18,18,18,18 },// segment 3
-		{ 19,20,21,22,22,22,22,22 }, // segment 4
-		{ 23,24,25,26,27,27,27,27 }, // segment 5
-		{ 28,29,30,31,32,32,32,32 } // segment 6
+		{ 0,5 }, // segment 0
+		{ 5,5 }, // segment 1
+		{ 10,5 }, // segment 2
+		{ 15,4 },// segment 3
+		{ 19,4 }, // segment 4
+		{ 23,5 }, // segment 5
+		{ 28,5 } // segment 6
 	},
 
-
-
 	{//second clock digit
-		{ 33,34,35,36,37,37,37,37 },
-		{ 38,39,40,41,42,42,42,42 },
-		{ 43,44,45,46,47,47,47,47 },
-		{ 48,49,50,51,51,51,51,51 },
-		{ 52,53,54,55,55,55,55,55 },
-		{ 56,57,58,59,60,60,60,60 },
-		{ 61,62,63,64,65,65,65,65 }
+		{ 33,5 },
+		{ 38,5 },
+		{ 43,5 },
+		{ 48,4 },
+		{ 52,4 },
+		{ 56,5 },
+		{ 61,5 }
 
 	},
 	{//third clock digit
-		{ 74,75,76,77,78,78,78,78 },
-		{ 79,80,81,82,83,83,83,83 },
-		{ 84,85,86,87,88,88,88,88 },
-		{ 89,90,91,92,92,92,92,92 },
-		{ 93,94,95,96,96,96,96,96 },
-		{ 97,98,99,100,101,101,101,101 },
-		{ 102,103,104,105,106,106,106,106 }
+		{ 74,5 },
+		{ 79,5},
+		{ 84,5 },
+		{ 89,4 },
+		{ 93,4 },
+		{ 97,5 },
+		{ 102,5}
 
 	},
 
 	{//forth clock digit
-		{ 107,108,109,110,111,111,111,111 },
-		{ 112,113,114,115,116,116,116,116 },
-		{ 117,118,119,120,121,121,121,121 },
-		{ 122,123,124,125,125,125,125,125 },
-		{ 126,127,128,129,129,129,129,129 },
-		{ 130,131,132,133,134,134,134,134 },
-		{ 135,136,137,138,139,139,139,139 }
+		{ 107,5},
+		{ 112,5 },
+		{ 117,5 },
+		{ 122,4},
+		{ 126,4 },
+		{ 130,5},
+		{ 135,5 }
 
 
 	},
 	{//fith digit - Home Score
-		{ 140,141,142,143,144,145,146,146 },
-		{ 147,148,149,150,151,152,153,153 },
-		{ 154,155,156,157,158,159,160,160 },
-		{ 161,162,163,164,165,165,165,165 },
-		{ 166,167,168,169,170,170,170,170 },
-		{ 171,172,173,174,175,176,177,177 },
-		{ 178,179,180,181,182,183,184,184 }
+		{ 140,7 },
+		{ 147,7 },
+		{ 154,7 },
+		{ 161,5 },
+		{ 166,5 },
+		{ 171,7 },
+		{ 178,7 }
 
 
 	},
 	{//sixth digit - Away Score
-		{ 185,186,187,188,189,190,191,191 },
-		{ 192,193,194,195,196,197,198,198 },
-		{ 199,200,201,202,203,204,205,205 },
-		{ 206,207,208,209,210,210,210,210 },
-		{ 211,212,213,214,215,215,215,215 },
-		{ 216,217,218,219,220,221,222,222 },
-		{ 223,224,225,226,227,228,229,229 }
+		{ 185,7},
+		{ 192,7 },
+		{ 199,7 },
+		{ 206,5 },
+		{ 211,5 },
+		{ 216,7 },
+		{ 223,7 }
 
 	},
 };
 
-int LedColonMap[] = { 67,68,71,72,72,72,72,72 };
+int LedColonMap[] = { 67,68,71,72 };
 
 
 
@@ -472,11 +467,11 @@ void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcol
 
 // FUNCTION TO SET AND SHOW ANY SINGLE DIGIT
 void setDigit(int digit, int value, uint32_t color) {
-	int ledsPerSeg = 8;
+
 	
 	for (int seg = 0; seg < 7; seg++) {
-		for (int led = 0; led < ledsPerSeg; led++) {
-			strip.setPixelColor(LedSegmentMap[digit][seg][led], Font[value][seg] ? color : OFF);
+		for (int led = LedSegmentMap[digit][seg][1]; led < LedSegmentMap[digit][seg][2]; led++) {
+			strip.setPixelColor(led, Font[value][seg] ? color : OFF);
 		}
 	}
 	strip.show();
@@ -486,7 +481,7 @@ void setDigit(int digit, int value, uint32_t color) {
 
 void setColon(int vlaue, uint32_t Coloncolor) {
 
-	for (int led = 0; led < 8; led++) {
+	for (int led = 0; led < 4; led++) {
 		strip.setPixelColor(LedColonMap[led], Coloncolor);
 	}
 	
