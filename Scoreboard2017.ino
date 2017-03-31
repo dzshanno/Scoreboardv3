@@ -570,7 +570,7 @@ void SetTimeDigits() {
 	// Flash the COLON
 
 	if (millis() % 1000 < 100) {
-		setColon(1, TimerDisplayColor);
+		setColon(1, ClockDisplayColor);
 	}
 	else
 	{
