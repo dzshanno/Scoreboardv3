@@ -34,7 +34,7 @@ Bounce debounceSet = Bounce();
 
 // Define constants
 
-#define N_LEDS 140
+#define N_LEDS 230
 
 // Define colors to make setting the LEDs easier
 #define RED    0xFF0000
@@ -82,8 +82,6 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800
 //  11111
 //  5   7
 //  66666
-
-int COLONLED = 81;
 
 int Font[12][7] = {
 	{ 0,1,1,1,1,1,1 }, //value 0
@@ -177,7 +175,7 @@ int LedSegmentMap[6][7][8] = {
 	},
 };
 
-int LedColonMap[] = { 67,68,71,72 };
+int LedColonMap[] = { 67,68,71,72,72,72,72,72 };
 
 
 
@@ -238,8 +236,8 @@ void setup() {
 	// SETUP DISPLAY
 
 	strip.begin();
-	SetBrightness();
-	ShowTest();
+	strip.setBrightness(Brightness);
+
 	// Move to 'Normal' Mode
 	Scoreboardmode = Clock;
 
@@ -252,13 +250,9 @@ void loop() {
 	//EVERY CYCLE CHECK FOR INPUT UPDATES Buttons, SMS, RTC
 
 	//CHECK FOR SMS
-	CheckSMS();
+	//CheckSMS();
 
 	//CHECK the status of each button
-	//int b1 = ButtonPress(HOMEBUTTONPIN);
-	//int b2 = ButtonPress(AWAYBUTTONPIN);
-	//int b3 = ButtonPress(MODEBUTTONPIN);
-	//int b4 = ButtonPress(SETBUTTONPIN);
 
 	debounceHome.update();
 	debounceAway.update();
@@ -275,7 +269,8 @@ void loop() {
 
 	//Get latest Time
 	now = RTC.now();
-	//Serial.print(b1);
+	
+
 	// Respond to buttons
 	// Home Button (b1) - Same behaviour in every state
 	if (b1) {
@@ -379,17 +374,17 @@ void loop() {
 			break;
 			case Set:
 			{
-				Timerstatus = Running;
+				StartTimer();
 			}
 			break;
 			case Running:
 			{
-				Timerstatus = Paused;
+				pauseTimer();
 			}
 			break;
 			case Paused:
 			{
-				Timerstatus = Running;
+				StartTimer();
 			}
 			break;
 			case Finished:
@@ -436,7 +431,6 @@ void loop() {
 	SetClockDigits();
 	SetScoreDigits();
 
-	Display(); // Show Stuff on the Digits
 	Serial.print(Scoreboardmode);
 }
 // end of Loop
@@ -444,7 +438,6 @@ void loop() {
 void Display() {
 
 	strip.show();
-	delay(100);
 }
 void SetScoreDigits() {
 	// Set  the values of the score digits
@@ -484,8 +477,6 @@ void setDigit(int digit, int value, uint32_t color) {
 	for (int seg = 0; seg < 7; seg++) {
 		for (int led = 0; led < ledsPerSeg; led++) {
 			strip.setPixelColor(LedSegmentMap[digit][seg][led], Font[value][seg] ? color : OFF);
-			Serial.print(Font[value][seg]);
-			Serial.print(color);
 		}
 	}
 	strip.show();
@@ -606,18 +597,7 @@ void setupRTC() {
 	SwitchOnTime = TimeNow;
 }
 
-// Set the Strip Default Brightness
-void SetBrightness() {
-	strip.setBrightness(Brightness);
-}
-// get the current brightness and increase it to max then start at low
-void CycleBrightness() {
 
-	Brightness = Brightness + 10;
-	if (Brightness > 255) Brightness = 20;
-	SetBrightness();
-
-}
 // Set the clock digits
 
 void ShowScore() {
@@ -647,16 +627,4 @@ void TimerAddMin() {
 // Add an hour to the time
 void TimerAddSec() {
 	TimerDuration = TimerDuration + 1;
-}
-// //////////////////////////////////////////////////
-// ADMIN CODE
-//
-// FUNCTION TO RUN THROUGH THE DIGITS TESTING THAT THEY FUNCTION CORRECTLY
-void ShowTest() {
-	for (int digit = 0; digit<4; digit++) {
-		for (int i = 0; i<11; i++) {
-			setDigit(digit, i, RED);
-			delay(50);
-		}
-	}
 }
