@@ -34,7 +34,7 @@ Bounce debounceSet = Bounce();
 
 // Define constants
 
-#define N_LEDS 230
+#define N_LEDS 240
 
 // Define colors to make setting the LEDs easier
 #define RED    0xFF0000
@@ -53,8 +53,8 @@ long TimerDisplayTime = 0;
 long TimeNow = 0;
 long Timer1 = 0;
 long SwitchOnTime;
-int HomeScore = 0;
-int AwayScore = 0;
+byte HomeScore = 0;
+byte AwayScore = 0;
 long temp = 0;
 
 
@@ -80,7 +80,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800
 //  5   7
 //  66666
 
-int Font[12][7] = {
+bool Font[12][7] = {
 	{ 0,1,1,1,1,1,1 }, //value 0
 	{ 0,1,0,0,0,0,1 }, //value 1
 	{ 1,1,1,0,1,1,0 }, //value 2
@@ -145,7 +145,6 @@ byte LedSegmentMap[6][7][2] = {
 		{ 130,5},
 		{ 135,5 }
 
-
 	},
 	{//fith digit - Home Score
 		{ 140,7 },
@@ -170,7 +169,7 @@ byte LedSegmentMap[6][7][2] = {
 	},
 };
 
-int LedColonMap[] = { 67,68,71,72 };
+int LedColonMap[4] = { 67,68,71,72 };
 
 
 
@@ -178,8 +177,8 @@ DateTime now; // To hold the current time from the RTC
 
 // SETUP REFRESH SPEED - HOW OFTEN SHOULD SMS ETC BE CHECKED
 
-int SMSCheckRate = 10; // CHECK FOR SMS EVERY 10 SECS
-int TEMPCheckRate = 600; // CHECK TEMPERATURE EVERY 10 MINS
+// int SMSCheckRate = 10; // CHECK FOR SMS EVERY 10 SECS
+// int TEMPCheckRate = 600; // CHECK TEMPERATURE EVERY 10 MINS
 			  
 // Set-up scoreboard mode
 
