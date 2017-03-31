@@ -66,6 +66,7 @@ enum TimerStatuses { Unset, Set, Running, Paused, Finished};
 uint32_t ClockDisplayColor = BLUE;
 uint32_t TimerDisplayColor = GREEN;
 uint32_t ScoreDisplayColor = RED;
+uint32_t TempDisplayColor = RED;
 
 RTC_DS1307 RTC;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800);
@@ -87,7 +88,7 @@ bool Font[12][7] = {
 	{ 1,1,1,0,0,1,1 }, //value 3
 	{ 1,1,0,1,0,0,1 }, //value 4
 	{ 1,0,1,1,0,1,1 }, //value 5
-	{ 1,0,0,1,1,1,1 }, //value 6
+	{ 1,0,1,1,1,1,1 }, //value 6
 	{ 0,1,1,0,0,0,1 }, //value 7
 	{ 1,1,1,1,1,1,1 }, //value 8
 	{ 1,1,1,1,0,0,1 }, //value 9
@@ -314,24 +315,28 @@ void loop() {
 
 		case SetClockHour:
 		{
+			ClockFlash = true;
 			ClockAddHour(); // Add 1 Hour to Current Time
 		}
 		break;
 
 		case SetClockMin:
 		{
+			ClockFlash = true;
 			ClockAddMin(); // Add 1 Min to Current Time
 		}
 		break;
 		
 		case SetTimerMin:
 		{
+			ClockFlash = true;
 			TimerAddMin(); // Add 1 Hour to Current Time
 		}
 		break;
 		
 		case SetTimerSec:
 		{
+			ClockFlash = true;
 			TimerAddSec(); // Add 1 Hour to Current Time
 		}
 		break;
@@ -354,6 +359,7 @@ void loop() {
 		case Clock: //
 		{
 			Scoreboardmode = SetClockHour; // move to Timer Mode
+			ClockFlash = true;
 		}
 		break; // end of Clock case
 
@@ -417,6 +423,7 @@ void loop() {
 		case SetTimerSec:
 		{
 			Scoreboardmode = Clock; // move to Clock State
+			ClockFlash = false;	
 		}
 		break;
 
@@ -436,8 +443,8 @@ void Display() {
 void SetScoreDigits() {
 	// Set  the values of the score digits
 
-	setDigit(4, HomeScore, ScoreDisplayColor);
-	setDigit(5, AwayScore, ScoreDisplayColor);
+	setDigit(4, HomeScore%10, ScoreDisplayColor);
+	setDigit(5, AwayScore%10, ScoreDisplayColor);
 
 }
 void SetClockDigits() {
@@ -451,13 +458,29 @@ void SetClockDigits() {
 		SetTimerDigits();
 		break;
 	case Temp:
-		ShowTemp();
+		SetTempDigits();
+		break;
+	case SetClockHour:
+		SetTimeDigits();
+		break;
+	case SetClockMin:
+		SetTimeDigits();
+		break;
+	case SetTimerMin:
+		SetTimerDigits();
+		break;
+	case SetTimerSec:
+		SetTimerDigits();
 		break;
 	}
 }
 
 // FUNCTION TO SET THE CLOCK DIGITS
 void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcolor) {
+	if (ClockFlash && (millis() % 500 < 250)) {
+		digitcolor = OFF;
+	}
+	
 	setDigit(0, digit0, digitcolor);
 	setDigit(1, digit1, digitcolor);
 	setDigit(2, digit2, digitcolor);
@@ -466,10 +489,10 @@ void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcol
 
 // FUNCTION TO SET AND SHOW ANY SINGLE DIGIT
 void setDigit(int digit, int value, uint32_t color) {
-
+	
 	
 	for (int seg = 0; seg < 7; seg++) {
-		for (int led = LedSegmentMap[digit][seg][1]; led < LedSegmentMap[digit][seg][2]; led++) {
+		for (int led = LedSegmentMap[digit][seg][0]; led < LedSegmentMap[digit][seg][0]+ LedSegmentMap[digit][seg][1]; led++) {
 			strip.setPixelColor(led, Font[value][seg] ? color : OFF);
 		}
 	}
@@ -563,15 +586,55 @@ void SetTimeDigits() {
 
 	// Flash the COLON
 
-	if (millis() % 1000 < 100) {
+	if (millis() % 500 < 250) {
 		setColon(1, ClockDisplayColor);
-	}
+	}  
 	else
 	{
 		setColon(0, OFF);
 	}
 
 	SetDigits(Digit1, Digit2, Digit3, Digit4, ClockDisplayColor);
+}
+
+void SetTempDigits() {
+	// show the current temperature
+	temp = 10; //set sub temperature
+	SetDigits(1, 0, 11, 10, TempDisplayColor);
+}
+// check for SMS messages
+void CheckSMS() {
+	//check for SMS messages
+}
+// Add an hour to the time
+void ClockAddHour() {
+	RTC.adjust(DateTime(now.year(), now.month(), now.day(), (now.hour() + 1)%24, now.minute(), now.second()));
+}
+// Add an hour to the time
+void ClockAddMin() {
+	RTC.adjust(DateTime(now.year(), now.month(), now.day(), now.hour(), (now.minute()+1)%60, now.second()));
+}
+// Add a minute to the timer
+void TimerAddMin() {
+
+	int TimerSecs = TimerDisplayTime % 60;
+	int TimerMins = (TimerDisplayTime - TimerSecs) / 60;
+	
+	TimerMins = (TimerMins + 1) % 100; // roll over at 99 mins
+
+	TimerDuration = TimerMins*60+TimerSecs;
+	TimerDisplayTime = TimerMins * 60 + TimerSecs;
+}
+// Add a sec to the timer
+void TimerAddSec() {
+	int TimerSecs = TimerDisplayTime % 60;
+	int TimerMins = (TimerDisplayTime - TimerSecs) / 60;
+
+	TimerSecs = (TimerSecs + 1) % 60; // roll over at 59 secs
+
+
+	TimerDuration = TimerMins * 60 + TimerSecs;
+	TimerDisplayTime = TimerMins * 60 + TimerSecs;
 }
 
 // FUNCTION TO INITIAILISE AND SET THE REAL TIME CLOCK
@@ -589,36 +652,4 @@ void setupRTC() {
 	DateTime now = RTC.now();
 	long TimeNow = now.unixtime();
 	SwitchOnTime = TimeNow;
-}
-
-
-// Set the clock digits
-
-void ShowScore() {
-	// Set the scoreboard digits
-}
-void ShowTemp() {
-	// show the current temperature
-}
-// check for SMS messages
-void CheckSMS() {
-	//check for SMS messages
-}
-// Add an hour to the time
-void ClockAddHour() {
-	RTC.adjust(DateTime(now.year(), now.month(), now.day(), now.hour() + 1, now.minute(), now.second()));
-}
-// Add an hour to the time
-void ClockAddMin() {
-	RTC.adjust(DateTime(now.year(), now.month(), now.day(), now.hour(), now.minute()+1, now.second()));
-}
-// Add an hour to the time
-void TimerAddMin() {
-
-	// this isnt going to work as Display value for the timer isnt held directly - need to update start time and duration
-	TimerDuration = TimerDuration + 60;
-}
-// Add an hour to the time
-void TimerAddSec() {
-	TimerDuration = TimerDuration + 1;
 }
