@@ -46,7 +46,7 @@ Bounce debounceSet = Bounce();
 
 // define global variables
 
-byte Brightness = 100;
+byte Brightness = 255;
 long TimerStartTime = 0;
 long TimerDuration = 0;
 long TimerDisplayTime = 0;
