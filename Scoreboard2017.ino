@@ -60,7 +60,7 @@ long temp = 0;
 
 boolean ClockFlash = false;
 
-enum  ScoreboardModes { Reset, Clock, Timer, Temp, SetClockHour, SetClockMin, SetTimerMin, SetTimerSec };
+enum  ScoreboardModes { Reset, Clock, Timer, Temp, SetClockHour, SetClockMin, SetTimerMin, SetTimerSec, SetBrightness };
 enum TimerStatuses { Unset, Set, Running, Paused, Finished};
 
 uint32_t ClockDisplayColor = BLUE;
@@ -81,7 +81,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, LEDPIN, NEO_GRB + NEO_KHZ800
 //  5   7
 //  66666
 
-bool Font[12][7] = {
+bool Font[13][7] = {
 	{ 0,1,1,1,1,1,1 }, //value 0
 	{ 0,1,0,0,0,0,1 }, //value 1
 	{ 1,1,1,0,1,1,0 }, //value 2
@@ -93,7 +93,9 @@ bool Font[12][7] = {
 	{ 1,1,1,1,1,1,1 }, //value 8
 	{ 1,1,1,1,0,0,1 }, //value 9
 	{ 0,0,0,0,0,0,0 }, //value 10 - all off
-    { 1,1,1,1,0,0,0 }  // value 11 - degree sign
+    { 1,1,1,1,0,0,0 }, // value 11 - degree sign
+ // { 1,1,1,1,1,0,1 }, // value ?? - letter a // removed to save space
+	{ 1,0,0,1,1,1,1} // value 12 the letter b
 };
 
 // digit set up
@@ -341,7 +343,12 @@ void loop() {
 		}
 		break;
 
-
+		case SetBrightness:
+		{
+			ClockFlash = true;
+			CycleBrightness(); // cycle round the brightness settting
+		}
+		break;
 		}
 	}
 
@@ -398,7 +405,7 @@ void loop() {
 		
 		case Temp:
 		{
-			// currently do nothing - will set temp later
+			Scoreboardmode = SetBrightness;
 		}
 		break;
 
@@ -427,6 +434,12 @@ void loop() {
 		}
 		break;
 
+		case SetBrightness:
+		{
+			Scoreboardmode = Temp; // move to Clock State
+			ClockFlash = false;
+		}
+		break;
 		}
 	}
 	SetClockDigits();
@@ -471,6 +484,9 @@ void SetClockDigits() {
 		break;
 	case SetTimerSec:
 		SetTimerDigits();
+		break;
+	case SetBrightness:
+		SetBrightnessDigits();
 		break;
 	}
 }
@@ -602,6 +618,19 @@ void SetTempDigits() {
 	temp = 10; //set sub temperature
 	SetDigits(1, 0, 11, 10, TempDisplayColor);
 }
+
+void SetBrightnessDigits() {
+	// show brightness adjuster
+	int brightnessunits = Brightness % 10;
+	int brightnesstens = (Brightness / 10) % 10;
+	int brightnesshundreds = Brightness / 100;
+
+	setDigit(0, 12, BLUE);
+	setDigit(1, brightnesshundreds, RED);
+	setDigit(2, brightnesstens, GREEN);
+	setDigit(3, brightnessunits, RED);
+
+}
 // check for SMS messages
 void CheckSMS() {
 	//check for SMS messages
@@ -652,4 +681,12 @@ void setupRTC() {
 	DateTime now = RTC.now();
 	long TimeNow = now.unixtime();
 	SwitchOnTime = TimeNow;
+}
+
+//function to cycle brtightness
+void CycleBrightness() {
+	int MinBrightness = 50;
+	int MaxBrightness = 255;
+		
+	Brightness = (((Brightness - MinBrightness) + 20) % (MaxBrightness - MinBrightness)) + MinBrightness; // cycle round the brightness figure in steps of 20
 }
