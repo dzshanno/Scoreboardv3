@@ -449,10 +449,7 @@ void loop() {
 }
 // end of Loop
 
-void Display() {
 
-	strip.show();
-}
 void SetScoreDigits() {
 	// Set  the values of the score digits
 
@@ -506,7 +503,7 @@ void SetDigits(int digit0, int digit1, int digit2, int digit4, uint32_t digitcol
 // FUNCTION TO SET AND SHOW ANY SINGLE DIGIT
 void setDigit(int digit, int value, uint32_t color) {
 	
-	
+	strip.setBrightness(Brightness);
 	for (int seg = 0; seg < 7; seg++) {
 		for (int led = LedSegmentMap[digit][seg][0]; led < LedSegmentMap[digit][seg][0]+ LedSegmentMap[digit][seg][1]; led++) {
 			strip.setPixelColor(led, Font[value][seg] ? color : OFF);
