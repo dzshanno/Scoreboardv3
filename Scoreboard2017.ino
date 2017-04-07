@@ -10,6 +10,7 @@
 #include <Adafruit_NeoPixel.h> // LED STRIP FILE
 #include <Wire.h> // NOT SURE WHAT this is for
 #include <arduino.h>
+#inckude <SIM800.h> //GSM LIBRARY
 
 // PIN DEFINITIONS
 
@@ -46,7 +47,7 @@ Bounce debounceSet = Bounce();
 
 // define global variables
 
-byte Brightness = 255;
+byte Brightness = 255; // SET INITIAL BRIGHTNESS TO MAX
 long TimerStartTime = 0;
 long TimerDuration = 0;
 long TimerDisplayTime = 0;
