@@ -1,5 +1,5 @@
 // MAIN CODE FOR WALLINGFORD HC SCOREBOARD
-// MARCH 2017 VERSION 3.0
+// MARCH 2017 VERSION 4.0
 // DAVID SHANNON
 
 // INCLUDE REQUIRED HEADER FILES
@@ -10,7 +10,7 @@
 #include <Adafruit_NeoPixel.h> // LED STRIP FILE
 #include <Wire.h> // NOT SURE WHAT this is for
 #include <arduino.h>
-#inckude <gprs.h> //GSM LIBRARY
+#include <gprs.h> //GSM LIBRARY
 
 // PIN DEFINITIONS
 
@@ -34,7 +34,14 @@ Bounce debounceSet = Bounce();
 // set up gsm module
 
 GPRS gprs;
+#define TIMEOUT    5000
 
+char currentLine[500] = "";
+int currentLineIndex = 0;
+
+//Boolean to be set to true if message notificaion was found and next
+//line of serial output is the actual SMS message content
+bool nextLineIsMessage = false;
 
 
 // Define constants
@@ -194,6 +201,8 @@ ScoreboardModes Scoreboardmode = Reset;
 TimerStatuses Timerstatus = Unset;
 
 
+
+
 // MAIN SETUP FUNCTION
 void setup() {
 
@@ -219,18 +228,29 @@ void setup() {
 	debounceSet.attach(SETBUTTONPIN);
 	debounceSet.interval(25);
 
-	
+
+	// SET DEFAULT TIME on the Timer
+	SetTimer(2100);
+	Timerstatus = Set;
+
+	// SETUP DISPLAY
+
+	strip.begin();
+	strip.setBrightness(Brightness);
+
+	// Move to 'Normal' Mode
+	Scoreboardmode = Clock;
 
 	// SETUP SERIAL CONNECTION
+	
 	Serial.begin(9600);
-
 
 	// SETUP REAL TIME CLOCK
 	setupRTC();
 	now = RTC.now();
 
 	// SETUP GSM SIM
-
+	
 	  while(!Serial);
  
   Serial.println("Starting SIM800 SMS Command Processor");
@@ -255,29 +275,6 @@ void setup() {
   }
  
   Serial.println("Init success");
-}
- 
-char currentLine[500] = "";
-int currentLineIndex = 0;
- 
-//Boolean to be set to true if message notificaion was found and next
-//line of serial output is the actual SMS message content
-bool nextLineIsMessage = false;
-
-
-	
-	// SET DEFAULT TIME on the Timer
-	SetTimer(2100);
-	Timerstatus = Set;
-
-	// SETUP DISPLAY
-
-	strip.begin();
-	strip.setBrightness(Brightness);
-
-	// Move to 'Normal' Mode
-	Scoreboardmode = Clock;
-
 }
 
 
@@ -726,7 +723,7 @@ void CycleBrightness() {
 
 
 // CHECK FOR SMS MESSAGE
-String CheckSMS(){  
+void CheckSMS(){  
 	
 	//If there is serial output from SIM800
   if(gprs.serialSIM800.available()){
@@ -748,10 +745,10 @@ String CheckSMS(){
             Serial.println(lastLine);
              
             //Read message content and set status according to SMS content
-            if(lastLine.indexOf("LED ON") >= 0){
-              ledStatus = 1;
-            } else if(lastLine.indexOf("LED OFF") >= 0) {
-              ledStatus = 0;
+            if(lastLine.indexOf("Home Goal") >= 0){
+              HomeScore = HomeScore + 1;
+            } else if(lastLine.indexOf("Away Goal") >= 0) {
+              AwayScore = AwayScore + 1;
             }
              
             nextLineIsMessage = false;
@@ -768,8 +765,7 @@ String CheckSMS(){
       currentLine[currentLineIndex++] = lastCharRead;
     }
   }
-}
-return Message;
+ 
 }
 
 	
