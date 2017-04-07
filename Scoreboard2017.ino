@@ -287,7 +287,7 @@ void loop() {
 	//EVERY CYCLE CHECK FOR INPUT UPDATES Buttons, SMS, RTC
 
 	//CHECK FOR SMS
-	//CheckSMS();
+	CheckSMS();
 
 	//CHECK the status of each button
 
@@ -668,10 +668,6 @@ void SetBrightnessDigits() {
 	setDigit(3, brightnessunits, RED);
 
 }
-// check for SMS messages
-void CheckSMS() {
-	//check for SMS messages
-}
 // Add an hour to the time
 void ClockAddHour() {
 	RTC.adjust(DateTime(now.year(), now.month(), now.day(), (now.hour() + 1)%24, now.minute(), now.second()));
@@ -730,7 +726,9 @@ void CycleBrightness() {
 
 
 // CHECK FOR SMS MESSAGE
-void CheckSMS(){  //If there is serial output from SIM800
+String CheckSMS(){  
+	
+	//If there is serial output from SIM800
   if(gprs.serialSIM800.available()){
     char lastCharRead = gprs.serialSIM800.read();
     //Read each character from serial output until \r or \n is reached (which denotes end of line)
@@ -771,6 +769,7 @@ void CheckSMS(){  //If there is serial output from SIM800
     }
   }
 }
+return Message;
 }
 
 	
